@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grocy Vision AI</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: #f0f2f5; color: #333; }
+        .container { max-width: 500px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #1a73e8; font-size: 24px; }
+        .upload-area { border: 2px dashed #1a73e8; border-radius: 8px; padding: 30px; text-align: center; cursor: pointer; margin-bottom: 20px; }
+        .upload-area input { display: none; }
+        .btn { display: block; width: 100%; padding: 15px; background: #1a73e8; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        #preview { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
+        .img-container { position: relative; width: calc(33.333% - 7px); aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 2px solid transparent; }
+        .img-container img { width: 100%; height: 100%; object-fit: cover; }
+        .status { margin-top: 20px; padding: 15px; border-radius: 8px; display: none; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Cadastrar Produto (IA)</h1>
+    
+    <label class="upload-area">
+        <span id="upload-text">Tirar Fotos (Máx 5)</span>
+        <!-- capture="environment" abre a câmera traseira no celular -->
+        <input type="file" id="images" accept="image/*" multiple capture="environment">
+    </label>
+
+    <div id="preview"></div>
+
+    <button id="submitBtn" class="btn" disabled>Analisar e Cadastrar</button>
+    <div id="statusMessage" class="status"></div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('images');
+    const previewContainer = document.getElementById('preview');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusMessage = document.getElementById('statusMessage');
+    
+    let selectedFiles = [];
+
+    fileInput.addEventListener('change', function(e) {
+        selectedFiles = Array.from(e.target.files).slice(0, 5); // Limita a 5
+        previewContainer.innerHTML = '';
+        
+        if (selectedFiles.length > 0) {
+            submitBtn.disabled = false;
+        }
+
+        selectedFiles.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const div = document.createElement('div');
+                div.className = 'img-container';
+                div.innerHTML = `<img src="${event.target.result}" alt="Foto ${index + 1}">`;
+                previewContainer.appendChild(div);
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+
+    submitBtn.addEventListener('click', async () => {
+        submitBtn.disabled = true;
+        submitBtn.innerText = "Analisando IA (pode demorar)...";
+        statusMessage.style.display = 'none';
+
+        const formData = new FormData();
+        selectedFiles.forEach(file => {
+            formData.append('images', file);
+        });
+
+        try {
+            const response = await fetch('./api/process', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+
+            statusMessage.style.display = 'block';
+            if (response.ok) {
+                statusMessage.className = 'status success';
+                statusMessage.innerHTML = `<strong>Sucesso!</strong><br>${result.data.nome}<br>Validade: ${result.data.validade}`;
+                selectedFiles = [];
+                previewContainer.innerHTML = '';
+                submitBtn.innerText = "Analisar e Cadastrar";
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            statusMessage.style.display = 'block';
+            statusMessage.className = 'status error';
+            statusMessage.innerText = error.message;
+            submitBtn.disabled = false;
+            submitBtn.innerText = "Tentar Novamente";
+        }
+    });
+</script>
+</body>
+</html>
